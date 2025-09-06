@@ -1,0 +1,120 @@
+tenant:
+  name: tenant-two
+  # image:
+  #   repository: quay.io/minio/minio
+  #   tag: RELEASE.2025-04-08T15-41-24Z
+  #   pullPolicy: IfNotPresent
+  env:
+  - name: MINIO_PROMETHEUS_AUTH_TYPE
+    value: "public"
+  - name: MINIO_API_ROOT_ACCESS
+    value: "on"
+  - name: MINIO_IDENTITY_OPENID_ROLE_POLICY
+    value: consoleAdmin
+  - name: MINIO_SCANNER_SPEED
+    value: "idle"
+  credsSecret:
+    name: minio-users
+  # configSecret:
+  #   name: minio-users
+  #   # accessKey: minio
+  #   # secretKey: minio123
+  #   existingSecret: true
+  pools:
+  - servers: 1 # Multi-node: 4 pods
+    name: pool-0
+    volumesPerServer: 1 # Multi-drive: 4 drives per pod/node
+    size: 2Gi # Size per volume = 4 x 2 = 8Gi
+    storageClassName: nfs-csi # storageClassName: directpv-min-io
+    tolerations: {}
+    nodeSelector: {}
+    affinity: {}
+    resources:
+      requests:
+        # cpu: 1
+        memory: 1Gi
+      limits:
+        # cpu: 3
+        memory: 4Gi
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 988
+      fsGroup: 988
+      fsGroupChangePolicy: "OnRootMismatch"
+      runAsNonRoot: true
+      supplementalGroups: [ 988 ]
+    containerSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 988
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      seccompProfile:
+        type: RuntimeDefault
+  mountPath: /export
+  # subPath: /data
+  initContainers:
+  - name: prep-minio-metadata
+    image: busybox:1.36
+    command: [ "sh", "-c" ]
+    args:
+    - |
+      set -eux
+      umask 0002
+      # create dirs individually (no brace expansion)
+      mkdir -p /export/.minio.sys/buckets /export/.minio.sys/tmp
+      # ensure setgid + group write
+      chmod 2775 /export/.minio.sys /export/.minio.sys/buckets /export/.minio.sys/tmp || true
+      # create/ensure the cache file is group-writable
+      : > /export/.minio.sys/buckets/.usage-cache.bin
+      chmod 0664 /export/.minio.sys/buckets/.usage-cache.bin || true
+    volumeMounts:
+    - name: data0
+      mountPath: /export
+  metrics:
+    enabled: true
+    port: 9000
+    protocol: http
+  certificate:
+    externalCaCertSecret: []
+    externalCertSecret: []
+    requestAutoCert: false
+    certConfig: {}
+  features:
+    bucketDNS: false
+    domains: {}
+    enableSFTP: false
+  buckets:
+  # - name: tenant-two-bucket-1
+  #   region: us-east-1
+  #   objectLock: false
+  # - name: tenant-two-bucket-2
+  #   region: us-east-2
+  #   objectLock: true
+  - name: velero
+    region: us-east-1
+    objectLock: false
+  users: []
+  podManagementPolicy: Parallel
+  serviceAccountName: ""
+  prometheusOperator: false
+
+ingress:
+  api:
+    enabled: true
+    ingressClassName: "nginx"
+    tls: []
+    host: api.tenant-two.com
+    path: /
+    pathType: Prefix
+  console:
+    enabled: true
+    ingressClassName: "nginx"
+    labels: {}
+    annotations: {}
+    tls: []
+    host: console.tenant-two.com
+    path: /
+    pathType: Prefix
