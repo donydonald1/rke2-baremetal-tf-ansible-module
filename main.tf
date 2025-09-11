@@ -61,7 +61,7 @@ module "helm" {
   source       = "git::https://github.com/donydonald1/rke2-baremetal-tf-ansible.git//modules/helm"
   cluster_name = module.rke2_baremetal_tf_ansible.cluster_name
   domain       = module.rke2_baremetal_tf_ansible.domain_name
-  depends_on   = [module.cloudflare, module.rke2_baremetal_tf_ansible]
+  depends_on   = [module.cloudflare, module.rke2_baremetal_tf_ansible, module.cloudflare, ]
 }
 
 module "k8s" {
@@ -81,13 +81,32 @@ module "k8s" {
   vault_organization        = var.vault_organization
   vault_oidc_client_id      = var.vault_oidc_client_id
   vault_oidc_client_secret  = var.vault_oidc_client_secret
-  depends_on                = [module.cloudflare, module.rke2_baremetal_tf_ansible, module.helm]
+  depends_on                = [module.cloudflare, module.rke2_baremetal_tf_ansible, ]
 }
 
 module "vault" {
   source        = "git::https://github.com/donydonald1/rke2-baremetal-tf-ansible.git//modules/vault"
   vault_secrets = var.vault_secrets
-  depends_on    = [module.k8s, module.rke2_baremetal_tf_ansible]
+  depends_on    = [module.k8s, module.rke2_baremetal_tf_ansible, module.helm, null_resource.wait_for_rancher]
+}
+
+resource "null_resource" "wait_for_rancher" {
+  provisioner "local-exec" {
+    command = <<EOT
+      echo "Waiting for Rancher to become reachable at ${var.rancher_hostname}..."
+      for i in {1..60}; do
+        if curl -sk --connect-timeout 5 https://${var.rancher_hostname}/ping >/dev/null; then
+          echo "Rancher is reachable."
+          exit 0
+        fi
+        echo "Not reachable yet, retrying in 10 seconds..."
+        sleep 10
+      done
+      echo "Rancher did not become reachable in time." >&2
+      exit 1
+    EOT
+  }
+  depends_on = [module.rke2_baremetal_tf_ansible, module.helm, module.k8s]
 }
 
 resource "rancher2_bootstrap" "admin" {
@@ -104,7 +123,7 @@ resource "rancher2_bootstrap" "admin" {
     ]
 
   }
-  depends_on = [module.rke2_baremetal_tf_ansible]
+  depends_on = [module.rke2_baremetal_tf_ansible, null_resource.wait_for_rancher]
 }
 
 resource "rancher2_project" "ci_cd_projects" {
