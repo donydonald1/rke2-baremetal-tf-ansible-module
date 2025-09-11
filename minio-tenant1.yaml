@@ -50,13 +50,26 @@ cluster:
 
   storage:
     size: 8Gi
-    storageClass: ""
+    accessModes:
+    - ReadWriteMany
+    storageClass: nfs-csi
 
   walStorage:
-    enabled: false
+    enabled: true
     size: 1Gi
-    storageClass: ""
+    storageClass: nfs-csi
 
+  postgresUID: 26
+  postgresGID: 26
+
+  podTemplate:
+    spec:
+      securityContext:
+        runAsUser: 26
+        runAsGroup: 26
+        runAsNonRoot: true
+        fsGroup: 26
+        fsGroupChangePolicy: OnRootMismatch
   resources: {}
     # limits:
     #   cpu: 2000m
@@ -74,21 +87,21 @@ cluster:
     superuser: false
     inRoles: []
     passwordSecret:
-      name: grafana-db-credentials
-  - name: loki
-    ensure: present
-    login: true
-    superuser: false
-    inRoles: []
-    passwordSecret:
-      name: loki-db-credentials
-  - name: tempo
-    ensure: present
-    login: true
-    superuser: false
-    inRoles: []
-    passwordSecret:
-      name: tempo-db-credentials
+      name: "postgres-superuser-secret"
+  # - name: loki
+  #   ensure: present
+  #   login: true
+  #   superuser: false
+  #   inRoles: []
+  #   passwordSecret:
+  #     name: loki-db-credentials
+  # - name: tempo
+  #   ensure: present
+  #   login: true
+  #   superuser: false
+  #   inRoles: []
+  #   passwordSecret:
+  #     name: tempo-db-credentials
 
   monitoring:
     enabled: true
@@ -99,7 +112,7 @@ cluster:
 
   postgresql:
     parameters:
-      max_connections: 300
+      max_connections: "300"
 
   initdb:
     localeCollate: 'en_US.utf8'

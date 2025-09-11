@@ -1,6 +1,6 @@
 # Local .terraform directories
-.terraform/
-
+*.terraform/
+*.terraform
 # .tfstate files
 *.tfstate
 *.tfstate.*
@@ -25,6 +25,7 @@ override.tf.json
 *baremetal01.yaml
 *baremetal02.yaml
 *baremetal03.yaml
+*baremetal04.yaml
 *ops-dev-dc-bm-rke2_kubeconfig.yaml
 *ops-dev-dc-bm-rke2-deploy-rke2.yml
 *ops-dev-dc-bm-rke2-inventory.ini
